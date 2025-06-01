@@ -41,7 +41,11 @@ jobs:
       
       - name: Set upload folder path based on date (UTC)
         id: date
-        run: echo "date_folder=$(date -u +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+        shell: pwsh
+        run: |
+          $date_folder = Get-Date -Format "yyyy-MM-dd"
+          echo "date_folder=$date_folder" >> $env:GITHUB_OUTPUT
+      
       
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
@@ -53,7 +57,7 @@ jobs:
       - name: Upload published files to S3 (date folder, overwrite if re-run today)
         run: |
           aws s3 sync ${{ env.ARTIFACT_PATH }} s3://${{ env.S3_BUCKET }}/${{ steps.date.outputs.date_folder }}/ --delete
-      
+        shell: pwsh
       # - name: Upload to S3
       #   uses: jakejarvis/s3-sync-action@master
       #   with:
