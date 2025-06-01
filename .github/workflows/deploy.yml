@@ -1,12 +1,26 @@
 name: Deploy ASP.NET Core App
 
 on:
-  push:
-    branches: [ main ]
+  # push:
+  #   branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      Environment:
+        description: "Choose the environment to deploy"
+        required: true
+        default: "test"
+        type: choice
+        options:
+          - test
+          - prod
 
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: windows-latest
+    env:
+      ENVIRONMENT: ${{ inputs.Environment }}
+      S3_BUCKET:  ${{ inputs.Environment }}-iis-app-deployment-s3
+      ARTIFACT_PATH: ./publish/
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -24,7 +38,22 @@ jobs:
 
       - name: Publish app
         run: dotnet publish -c Release -o publish
+      
+      - name: Set upload folder path based on date (UTC)
+        id: date
+        run: echo "date_folder=$(date -u +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
 
+      - name: Upload published files to S3 (date folder, overwrite if re-run today)
+        run: |
+          aws s3 sync ${{ env.ARTIFACT_PATH }} s3://${{ env.S3_BUCKET }}/${{ steps.date.outputs.date_folder }}/ --delete
+      
       # - name: Upload to S3
       #   uses: jakejarvis/s3-sync-action@master
       #   with:
